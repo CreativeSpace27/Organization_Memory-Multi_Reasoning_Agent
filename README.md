@@ -273,7 +273,7 @@ ollama serve
 
 Sunhacks 2024 Hackathon Project
 
-## 👥 Team
+## 👥 TEAM -- INNOVENGERS
 
 Built for Sunhacks 2024 Hackathon
 
