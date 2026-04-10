@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OrgMemory — Organizational Memory Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Variables ─────────────────────────────────── */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:        #080810;
+  --bg2:       #0e0e1a;
+  --bg3:       #14141f;
+  --bg4:       #1b1b28;
+  --bg5:       #222233;
+  --line:      #ffffff0d;
+  --line2:     #ffffff18;
+  --line3:     #ffffff28;
+  --accent:    #6c63ff;
+  --accent2:   #9b8fff;
+  --accent3:   #c4bfff;
+  --accentbg:  #6c63ff14;
+  --accentbg2: #6c63ff28;
+  --green:     #3dd68c;
+  --greenbg:   #3dd68c12;
+  --amber:     #f5a623;
+  --amberbg:   #f5a62312;
+  --red:       #ff6b6b;
+  --redbg:     #ff6b6b12;
+  --t1:        #f0f0f8;
+  --t2:        #9090b0;
+  --t3:        #5a5a78;
+  --t4:        #38384e;
+  --serif:     'Instrument Serif', Georgia, serif;
+  --sans:      'Geist', system-ui, sans-serif;
+  --mono:      'JetBrains Mono', monospace;
+  --r:         10px;
+  --r2:        16px;
+}
+
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--t1);
+  font-family:var(--sans);
+  font-size:14px;
+  line-height:1.6;
+  overflow-x:hidden;
+  min-height:100vh;
+}
+
+/* ── Grid noise texture ─── */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;opacity:.6;
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.app{display:flex;height:100vh;position:relative;z-index:1}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.sidebar{
+  width:260px;min-width:260px;
+  background:var(--bg2);
+  border-right:1px solid var(--line);
+  display:flex;flex-direction:column;
+  height:100vh;overflow:hidden;
+  position:relative;
+}
+.sidebar::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:80px;
+  background:linear-gradient(to top,var(--bg2),transparent);
+  pointer-events:none;z-index:2;
+}
+
+.logo{
+  padding:20px 18px 16px;
+  display:flex;align-items:center;gap:11px;
+  border-bottom:1px solid var(--line);
+  flex-shrink:0;
+}
+.logo-mark{
+  width:34px;height:34px;
+  background:var(--accent);
+  border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--serif);font-size:18px;font-style:italic;color:#fff;
+  flex-shrink:0;
+  box-shadow:0 0 20px var(--accentbg2);
+}
+.logo-text{display:flex;flex-direction:column;gap:0}
+.logo-name{font-size:15px;font-weight:600;letter-spacing:-.03em;color:var(--t1)}
+.logo-name em{color:var(--accent2);font-style:normal}
+.logo-sub{font-size:10px;color:var(--t3);font-family:var(--mono);letter-spacing:.04em}
+
+/* nav tabs */
+.nav-tabs{
+  display:flex;gap:2px;
+  padding:10px 12px;
+  border-bottom:1px solid var(--line);
+  flex-shrink:0;
+}
+.nav-tab{
+  flex:1;padding:6px 4px;
+  border:none;background:transparent;
+  color:var(--t3);font-family:var(--sans);font-size:11px;font-weight:500;
+  border-radius:6px;cursor:pointer;transition:all .15s;
+  letter-spacing:.02em;
+}
+.nav-tab:hover{color:var(--t2);background:var(--bg4)}
+.nav-tab.active{color:var(--accent2);background:var(--accentbg)}
+
+/* new conversation */
+.new-conv{
+  margin:10px 12px 6px;
+  padding:9px 14px;
+  background:transparent;
+  border:1px dashed var(--line3);
+  border-radius:var(--r);
+  color:var(--t3);
+  font-family:var(--sans);font-size:12px;font-weight:500;
+  cursor:pointer;
+  display:flex;align-items:center;gap:8px;
+  transition:all .2s;
+  flex-shrink:0;
+}
+.new-conv:hover{border-color:var(--accent);color:var(--accent2);background:var(--accentbg)}
+.new-conv .plus{font-size:16px;line-height:1;color:var(--t4);transition:color .2s}
+.new-conv:hover .plus{color:var(--accent2)}
+
+.section-lbl{
+  padding:8px 18px 4px;
+  font-size:9px;letter-spacing:.12em;
+  color:var(--t4);font-family:var(--mono);
+  text-transform:uppercase;flex-shrink:0;
+}
+
+.conv-list{flex:1;overflow-y:auto;padding-bottom:40px}
+.conv-list::-webkit-scrollbar{width:3px}
+.conv-list::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:3px}
+
+.conv-item{
+  margin:2px 8px;padding:9px 12px;
+  border-radius:var(--r);cursor:pointer;
+  color:var(--t2);font-size:12px;
+  display:flex;align-items:center;gap:8px;
+  transition:all .12s;border:1px solid transparent;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.conv-item:hover{background:var(--bg3);color:var(--t1)}
+.conv-item.active{
+  background:var(--accentbg);
+  color:var(--accent2);
+  border-color:var(--accentbg2);
+}
+.conv-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--t4);flex-shrink:0;transition:background .12s;
+}
+.conv-item.active .conv-dot{background:var(--accent2)}
+.conv-item:hover .conv-dot{background:var(--t2)}
+
+.sidebar-foot{
+  padding:14px 18px;
+  border-top:1px solid var(--line);
+  flex-shrink:0;z-index:3;position:relative;
+  background:var(--bg2);
+}
+.engine-status{
+  display:flex;align-items:center;gap:7px;
+  font-size:11px;color:var(--green);font-family:var(--mono);
+}
+.pulse{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--green);flex-shrink:0;
+  animation:pulse 2.5s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 #3dd68c40}
+  50%{opacity:.6;box-shadow:0 0 0 6px #3dd68c00}}
+
+/* ── Main panel ──────────────────────────────────────────── */
+.main{flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* topbar */
+.topbar{
+  padding:14px 24px;
+  border-bottom:1px solid var(--line);
+  background:var(--bg2);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+}
+.topbar-left{display:flex;flex-direction:column;gap:2px}
+.topbar-title{font-size:14px;font-weight:600;color:var(--t1)}
+.topbar-meta{font-size:11px;color:var(--t3);font-family:var(--mono)}
+
+.topbar-actions{display:flex;gap:8px;align-items:center}
+.tbtn{
+  padding:7px 13px;
+  border:1px solid var(--line2);border-radius:var(--r);
+  background:var(--bg3);color:var(--t2);
+  font-family:var(--sans);font-size:12px;font-weight:500;
+  cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;gap:6px;
+}
+.tbtn:hover{border-color:var(--line3);color:var(--t1);background:var(--bg4)}
+.tbtn.primary{
+  background:var(--accent);color:#fff;border-color:var(--accent);
+  box-shadow:0 0 14px var(--accentbg2);
+}
+.tbtn.primary:hover{background:var(--accent2);border-color:var(--accent2)}
+
+/* upload zone */
+.upload-zone{
+  margin:0 24px;
+  display:none;
+  border:1px dashed var(--line3);border-radius:var(--r2);
+  padding:16px 20px;
+  background:var(--bg3);
+  cursor:pointer;transition:all .2s;
+  align-items:center;gap:14px;
+}
+.upload-zone.open{display:flex}
+.upload-zone:hover{border-color:var(--accent);background:var(--accentbg)}
+.upload-icon{
+  width:42px;height:42px;background:var(--bg4);border-radius:var(--r);
+  display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;
+}
+.upload-copy strong{font-size:13px;font-weight:600;color:var(--t1);display:block;margin-bottom:3px}
+.upload-copy span{font-size:11px;color:var(--t3)}
+
+.doc-chips{display:flex;gap:6px;flex-wrap:wrap;padding:8px 24px 0}
+.doc-chip{
+  padding:4px 11px;
+  background:var(--greenbg);border:1px solid var(--green)22;
+  border-radius:20px;font-size:11px;color:var(--green);
+  font-family:var(--mono);display:flex;align-items:center;gap:5px;
+}
+
+/* ── Messages ─────────────────────────────────────────────── */
+.messages{
+  flex:1;overflow-y:auto;
+  padding:24px;
+  display:flex;flex-direction:column;gap:20px;
+  scroll-behavior:smooth;
+}
+.messages::-webkit-scrollbar{width:4px}
+.messages::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:4px}
+
+/* empty state */
+.empty{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  text-align:center;padding:40px 20px;
+  animation:fadeUp .5s ease;
+}
+.empty-glyph{
+  font-family:var(--serif);font-style:italic;
+  font-size:64px;color:var(--t4);margin-bottom:16px;
+  line-height:1;
+}
+.empty-title{
+  font-family:var(--serif);font-style:italic;
+  font-size:26px;color:var(--t2);margin-bottom:8px;
+}
+.empty-sub{font-size:13px;color:var(--t3);max-width:320px;line-height:1.7;margin-bottom:28px}
+.example-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:480px}
+.eg-card{
+  padding:11px 14px;border:1px solid var(--line2);border-radius:var(--r);
+  background:var(--bg3);color:var(--t2);font-size:12px;
+  text-align:left;cursor:pointer;transition:all .15s;
+  font-family:var(--sans);line-height:1.5;
+}
+.eg-card:hover{border-color:var(--accent);color:var(--accent3);background:var(--accentbg)}
+
+/* message rows */
+.msg-row{display:flex;gap:12px;align-items:flex-start;animation:fadeUp .25s ease}
+.msg-row.user{flex-direction:row-reverse}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.avatar{
+  width:30px;height:30px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:600;flex-shrink:0;
+  font-family:var(--mono);
+}
+.avatar.ai{
+  background:var(--accent);color:#fff;
+  box-shadow:0 0 12px var(--accentbg2);font-family:var(--serif);
+  font-style:italic;font-size:14px;
+}
+.avatar.user{background:var(--bg5);color:var(--t2);border:1px solid var(--line2)}
+
+.bubble-wrap{display:flex;flex-direction:column;gap:4px;max-width:74%}
+.msg-row.user .bubble-wrap{align-items:flex-end}
+
+.bubble{
+  padding:12px 16px;border-radius:12px;
+  font-size:13px;line-height:1.7;
+}
+.bubble.user{
+  background:var(--accent);color:#fff;
+  border-radius:12px 12px 2px 12px;
+  font-weight:400;
+}
+.bubble.ai{
+  background:var(--bg3);border:1px solid var(--line);
+  border-radius:12px 12px 12px 2px;
+}
+.msg-time{font-size:10px;color:var(--t4);font-family:var(--mono);padding:0 2px}
+
+/* reasoning card */
+.r-card{
+  margin-top:10px;
+  background:var(--bg4);
+  border:1px solid var(--line2);
+  border-left:2px solid var(--accent);
+  border-radius:0 var(--r) var(--r) 0;
+  padding:12px 14px;
+  animation:fadeUp .3s ease .05s both;
+}
+.r-label{
+  font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--accent2);font-family:var(--mono);font-weight:500;
+  margin-bottom:8px;display:flex;align-items:center;gap:6px;
+}
+.r-label::before{content:'';width:14px;height:1px;background:var(--accent2)}
+.r-item{
+  padding:4px 0;font-size:12px;color:var(--t2);
+  display:flex;gap:9px;line-height:1.55;
+  border-bottom:1px solid var(--line);
+}
+.r-item:last-child{border-bottom:none}
+.r-bullet{color:var(--accent2);flex-shrink:0;font-size:10px;margin-top:3px}
+
+/* alt rejected */
+.alt-card{
+  margin-top:8px;padding:10px 13px;
+  background:var(--amberbg);border:1px solid var(--amber)22;
+  border-radius:var(--r);font-size:12px;color:var(--t2);
+  animation:fadeUp .3s ease .1s both;
+}
+.alt-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--amber);font-family:var(--mono);margin-bottom:4px}
+
+/* what-if */
+.whatif-card{
+  margin-top:8px;padding:10px 13px;
+  background:var(--greenbg);border:1px solid var(--green)22;
+  border-radius:var(--r);font-size:12px;color:var(--t2);
+  animation:fadeUp .3s ease .15s both;
+}
+.whatif-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--green);font-family:var(--mono);margin-bottom:4px}
+
+/* sources */
+.sources{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;animation:fadeUp .3s ease .2s both}
+.src{
+  padding:3px 10px;background:var(--bg5);border:1px solid var(--line2);
+  border-radius:20px;font-size:10px;color:var(--t3);font-family:var(--mono);
+  cursor:pointer;transition:all .12s;
+}
+.src:hover{border-color:var(--accent);color:var(--accent2)}
+
+/* loading dots */
+.loading-bubble{
+  padding:14px 18px;background:var(--bg3);
+  border:1px solid var(--line);border-radius:12px 12px 12px 2px;
+  display:flex;gap:5px;align-items:center;
+}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:blink 1.2s infinite}
+.dot:nth-child(2){animation-delay:.18s}
+.dot:nth-child(3){animation-delay:.36s}
+@keyframes blink{0%,80%,100%{opacity:.15}40%{opacity:1}}
+
+/* ── Input area ──────────────────────────────────────────── */
+.input-area{
+  padding:14px 24px 18px;
+  border-top:1px solid var(--line);
+  background:var(--bg2);
+  flex-shrink:0;
+}
+.input-row{
+  display:flex;gap:8px;align-items:flex-end;
+  background:var(--bg3);border:1px solid var(--line2);
+  border-radius:var(--r2);padding:10px 12px;
+  transition:border-color .2s;
+}
+.input-row:focus-within{border-color:var(--accent)60}
+textarea{
+  flex:1;background:transparent;border:none;outline:none;
+  color:var(--t1);font-family:var(--sans);font-size:13px;
+  resize:none;min-height:22px;max-height:120px;line-height:1.6;
+}
+textarea::placeholder{color:var(--t4)}
+.send{
+  width:34px;height:34px;background:var(--accent);
+  border:none;border-radius:9px;color:#fff;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-size:16px;transition:all .15s;
+  box-shadow:0 0 12px var(--accentbg2);
+}
+.send:hover{background:var(--accent2);transform:scale(1.05)}
+.send:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.hints{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.hint{
+  padding:4px 11px;border:1px solid var(--line);border-radius:20px;
+  font-size:11px;color:var(--t4);cursor:pointer;font-family:var(--mono);
+  transition:all .12s;background:transparent;
+}
+.hint:hover{border-color:var(--accent)60;color:var(--accent3)}
+
+/* ── Right panel (store decision form) ──────────────────── */
+.right-panel{
+  width:320px;min-width:320px;
+  background:var(--bg2);border-left:1px solid var(--line);
+  display:flex;flex-direction:column;height:100vh;
+  overflow-y:auto;
+}
+.right-panel::-webkit-scrollbar{width:3px}
+.right-panel::-webkit-scrollbar-thumb{background:var(--bg5)}
+
+.panel-head{
+  padding:16px 18px;border-bottom:1px solid var(--line);
+  font-size:12px;font-weight:600;color:var(--t1);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;position:sticky;top:0;background:var(--bg2);z-index:5;
+}
+.panel-head span{color:var(--t3);font-family:var(--mono);font-size:10px;font-weight:400}
+
+.form-body{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+
+.field label{
+  display:block;font-size:10px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--t3);font-family:var(--mono);
+  margin-bottom:5px;
+}
+.field input,.field textarea{
+  width:100%;padding:9px 11px;
+  background:var(--bg3);border:1px solid var(--line2);
+  border-radius:var(--r);color:var(--t1);
+  font-family:var(--sans);font-size:12px;outline:none;
+  transition:border-color .15s;
+}
+.field textarea{resize:vertical;min-height:60px}
+.field input:focus,.field textarea:focus{border-color:var(--accent)60}
+.field input::placeholder,.field textarea::placeholder{color:var(--t4)}
+
+.tags-input-wrap{display:flex;gap:6px;flex-wrap:wrap;
+  padding:6px 8px;background:var(--bg3);border:1px solid var(--line2);
+  border-radius:var(--r);min-height:36px;cursor:text;transition:border-color .15s}
+.tags-input-wrap:focus-within{border-color:var(--accent)60}
+.tag-pill{
+  padding:2px 8px;background:var(--accentbg);border:1px solid var(--accent)30;
+  border-radius:20px;font-size:11px;color:var(--accent2);
+  display:flex;align-items:center;gap:4px;cursor:default;
+}
+.tag-rm{cursor:pointer;color:var(--accent);font-size:13px;line-height:1;
+  transition:color .12s}
+.tag-rm:hover{color:var(--red)}
+.tags-input{
+  flex:1;min-width:80px;background:transparent;border:none;
+  outline:none;color:var(--t1);font-size:12px;font-family:var(--sans);
+  padding:2px 4px;
+}
+.tags-input::placeholder{color:var(--t4)}
+
+.submit-btn{
+  padding:10px;background:var(--accent);
+  border:none;border-radius:var(--r);color:#fff;
+  font-family:var(--sans);font-size:13px;font-weight:600;
+  cursor:pointer;transition:all .15s;
+  box-shadow:0 0 16px var(--accentbg2);
+  display:flex;align-items:center;justify-content:center;gap:7px;
+}
+.submit-btn:hover{background:var(--accent2);box-shadow:0 0 22px var(--accentbg2)}
+.submit-btn:disabled{opacity:.4;cursor:not-allowed}
+
+.toast{
+  margin:0 18px 14px;padding:10px 13px;
+  border-radius:var(--r);font-size:12px;
+  display:none;animation:fadeUp .25s ease;
+}
+.toast.success{background:var(--greenbg);border:1px solid var(--green)22;color:var(--green)}
+.toast.error  {background:var(--redbg); border:1px solid var(--red)22;  color:var(--red)}
+
+.divider{height:1px;background:var(--line);margin:4px 0}
+
+/* recent decisions list */
+.decisions-list{padding:0 18px 18px;display:flex;flex-direction:column;gap:8px}
+.decision-card{
+  padding:10px 12px;background:var(--bg3);border:1px solid var(--line);
+  border-radius:var(--r);transition:all .15s;cursor:default;
+}
+.decision-card:hover{border-color:var(--line2)}
+.dc-title{font-size:12px;font-weight:600;color:var(--t1);margin-bottom:3px}
+.dc-reason{font-size:11px;color:var(--t3);line-height:1.5;margin-bottom:6px}
+.dc-tags{display:flex;gap:4px;flex-wrap:wrap}
+.dc-tag{
+  padding:2px 7px;background:var(--accentbg);border-radius:20px;
+  font-size:10px;color:var(--accent2);font-family:var(--mono);
+}
+.dc-meta{font-size:10px;color:var(--t4);font-family:var(--mono);margin-top:5px}
+
+/* ── API config badge ────────────────────────────── */
+.api-badge{
+  margin:0 18px 14px;padding:9px 12px;
+  background:var(--amberbg);border:1px solid var(--amber)22;
+  border-radius:var(--r);display:flex;align-items:center;gap:8px;
+}
+.api-badge-text{font-size:11px;color:var(--amber)}
+.api-badge a{color:var(--amber);text-decoration:underline;cursor:pointer}
+.api-input{
+  width:100%;margin-top:6px;padding:7px 10px;
+  background:var(--bg4);border:1px solid var(--amber)30;
+  border-radius:8px;color:var(--t1);font-family:var(--mono);font-size:11px;outline:none;
+}
+.api-input:focus{border-color:var(--amber)60}
+
+/* mobile toggle */
+.panel-toggle{display:none}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media(max-width:900px){
+  .sidebar{width:52px;min-width:52px}
+  .logo-text,.nav-tab span,.conv-item span,
+  .section-lbl,.engine-status span,.logo-sub{display:none}
+  .logo{padding:14px 10px;justify-content:center}
+  .logo-name{display:none}
+  .new-conv{padding:9px;justify-content:center}
+  .new-conv span{display:none}
+  .conv-item{justify-content:center;padding:9px 0}
+  .conv-dot{width:6px;height:6px}
+  .right-panel{display:none}
+  .panel-toggle{
+    display:flex;position:fixed;bottom:80px;right:16px;
+    width:44px;height:44px;background:var(--accent);border:none;
+    border-radius:50%;color:#fff;font-size:18px;
+    align-items:center;justify-content:center;cursor:pointer;
+    box-shadow:0 4px 20px #0008;z-index:100;
+  }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">O</div>
+      <div class="logo-text">
+        <div class="logo-name">Org<em>Memory</em></div>
+        <div class="logo-sub">memory engine</div>
+      </div>
+    </div>
+
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="setTab(this,'chat')"><span>Chat</span></button>
+      <button class="nav-tab" onclick="setTab(this,'store')"><span>Store</span></button>
+      <button class="nav-tab" onclick="setTab(this,'docs')"><span>Docs</span></button>
+    </div>
+
+    <button class="new-conv" onclick="newConversation()">
+      <span class="plus">+</span><span>New conversation</span>
+    </button>
+    <div class="section-lbl">Recent</div>
+    <div class="conv-list" id="convList"></div>
+
+    <div class="sidebar-foot">
+      <div class="engine-status">
+        <div class="pulse"></div>
+        <span>Memory engine active</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main" id="mainPanel">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title" id="convTitle">Architecture decisions</div>
+        <div class="topbar-meta" id="convMeta">0 decisions in memory · 0 documents</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="tbtn" onclick="toggleUpload()">📎 Upload</button>
+        <button class="tbtn" onclick="clearChat()">Clear</button>
+        <button class="tbtn primary" onclick="showStorePanel()">+ Store decision</button>
+      </div>
+    </div>
+
+    <!-- upload zone -->
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <div class="upload-icon">📁</div>
+      <div class="upload-copy">
+        <strong>Add documents to organizational memory</strong>
+        <span>Meeting notes · Slack exports · Architecture docs · Decision logs</span>
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept=".txt,.md,.json" multiple style="display:none" onchange="handleFiles(event)">
+    <div class="doc-chips" id="docChips"></div>
+
+    <!-- messages -->
+    <div class="messages" id="messages">
+      <div class="empty" id="emptyState">
+        <div class="empty-glyph">∴</div>
+        <div class="empty-title">What do you want to remember?</div>
+        <div class="empty-sub">Ask why a decision was made, who approved it, or what alternatives were considered.</div>
+        <div class="example-grid">
+          <button class="eg-card" onclick="useEg(this)">Why did we choose PostgreSQL over MongoDB?</button>
+          <button class="eg-card" onclick="useEg(this)">Who approved the AWS migration?</button>
+          <button class="eg-card" onclick="useEg(this)">What alternatives were considered for caching?</button>
+          <button class="eg-card" onclick="useEg(this)">What if we remove Redis from the stack?</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- input -->
+    <div class="input-area">
+      <div class="input-row">
+        <textarea id="msgInput" placeholder="Ask why a decision was made…" rows="1"
+          onkeydown="onKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="send" id="sendBtn" onclick="send()">↑</button>
+      </div>
+      <div class="hints">
+        <span class="hint" onclick="fillHint(this)">Why did we choose X?</span>
+        <span class="hint" onclick="fillHint(this)">Who approved Y?</span>
+        <span class="hint" onclick="fillHint(this)">What if we remove Z?</span>
+        <span class="hint" onclick="fillHint(this)">Alternatives rejected?</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── Right Panel: Store Decision ── -->
+  <aside class="right-panel" id="rightPanel">
+    <div class="panel-head">
+      Store Decision <span>POST /store-decision</span>
+    </div>
+
+    <!-- API config -->
+    <div class="api-badge" id="apiBadge" style="margin-top:14px">
+      <div>⚙️</div>
+      <div class="api-badge-text">
+        Set backend URL to connect<br>
+        <input class="api-input" id="apiUrl" placeholder="http://127.0.0.1:8001" value="http://127.0.0.1:8001">
+      </div>
+    </div>
+
+    <div class="form-body">
+      <div class="field">
+        <label>Decision *</label>
+        <input id="f-decision" placeholder="Use Redis" />
+      </div>
+      <div class="field">
+        <label>Reason *</label>
+        <textarea id="f-reason" placeholder="reduce DB load and caching"></textarea>
+      </div>
+      <div class="field">
+        <label>Alternatives (comma separated)</label>
+        <input id="f-alternatives" placeholder="Memcached, In-memory cache" />
+      </div>
+      <div class="field">
+        <label>Impacts (comma separated)</label>
+        <input id="f-impacts" placeholder="API latency, database load" />
+      </div>
+      <div class="field">
+        <label>Source *</label>
+        <input id="f-source" placeholder="architecture meeting" />
+      </div>
+      <div class="field">
+        <label>Project</label>
+        <input id="f-project" placeholder="backend-v2" />
+      </div>
+      <div class="field">
+        <label>Decided by</label>
+        <input id="f-decided-by" placeholder="lead-engineer" />
+      </div>
+      <div class="field">
+        <label>Tags</label>
+        <div class="tags-input-wrap" id="tagsWrap" onclick="document.getElementById('tagInput').focus()">
+          <input class="tags-input" id="tagInput" placeholder="Add tag & press Enter…"
+            onkeydown="addTag(event)">
+        </div>
+      </div>
+      <button class="submit-btn" id="submitBtn" onclick="storeDecision()">
+        <span>Store in Memory</span> <span>→</span>
+      </button>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <div class="divider"></div>
+
+    <div class="panel-head" style="position:relative">
+      Recent Decisions <span id="decCount">0 stored</span>
+    </div>
+    <div class="decisions-list" id="decisionsList">
+      <div style="padding:16px 0;text-align:center;font-size:12px;color:var(--t4)">No decisions stored yet</div>
+    </div>
+  </aside>
+
+</div>
+
+<button class="panel-toggle" onclick="toggleRight()">＋</button>
+
+<script>
+// ── State ─────────────────────────────────────────────────────
+const state = {
+  activeConv: null,
+  conversations: {},
+  decisions: [],
+  docs: [],
+  tags: [],
+  loading: false,
+};
+
+const API_BASE = () => (document.getElementById('apiUrl')?.value || 'http://127.0.0.1:8000').replace(/\/$/,'');
+
+// ── Init ──────────────────────────────────────────────────────
+window.onload = () => {
+  newConversation('Architecture decisions');
+  newConversation('Why Redis over Memcached?');
+  newConversation('Auth system approval');
+  switchConv(Object.keys(state.conversations)[0]);
+  updateMeta();
+};
+
+// ── Conversations ─────────────────────────────────────────────
+function newConversation(title) {
+  const id = Date.now() + Math.random();
+  state.conversations[id] = { id, title: title || 'New conversation', msgs: [], docs: [] };
+  renderConvList();
+  if (!title) switchConv(id);
+  return id;
+}
+
+function switchConv(id) {
+  state.activeConv = id;
+  document.getElementById('convTitle').textContent = state.conversations[id]?.title || 'Conversation';
+  renderConvList();
+  renderMessages();
+  updateMeta();
+}
+
+function clearChat() {
+  if (state.activeConv) state.conversations[state.activeConv].msgs = [];
+  renderMessages();
+}
+
+function renderConvList() {
+  const el = document.getElementById('convList');
+  el.innerHTML = Object.values(state.conversations).map(c => `
+    <div class="conv-item ${c.id == state.activeConv ? 'active' : ''}" onclick="switchConv(${c.id})">
+      <div class="conv-dot"></div>
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.title}</span>
+    </div>`).join('');
+}
+
+function updateMeta() {
+  document.getElementById('convMeta').textContent =
+    `${state.decisions.length} decisions in memory · ${state.docs.length} documents`;
+}
+
+// ── Messages ─────────────────────────────────────────────────
+function renderMessages() {
+  const conv = state.conversations[state.activeConv];
+  const el = document.getElementById('messages');
+  if (!conv || conv.msgs.length === 0) {
+    el.innerHTML = `<div class="empty" id="emptyState">
+      <div class="empty-glyph">∴</div>
+      <div class="empty-title">What do you want to remember?</div>
+      <div class="empty-sub">Ask why a decision was made, who approved it, or what alternatives were considered.</div>
+      <div class="example-grid">
+        <button class="eg-card" onclick="useEg(this)">Why did we choose PostgreSQL over MongoDB?</button>
+        <button class="eg-card" onclick="useEg(this)">Who approved the AWS migration?</button>
+        <button class="eg-card" onclick="useEg(this)">What alternatives were considered for caching?</button>
+        <button class="eg-card" onclick="useEg(this)">What if we remove Redis from the stack?</button>
+      </div></div>`;
+    return;
+  }
+  el.innerHTML = conv.msgs.map(buildMsgHTML).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function buildMsgHTML(m) {
+  if (m.role === 'user') {
+    return `<div class="msg-row user">
+      <div class="avatar user">You</div>
+      <div class="bubble-wrap">
+        <div class="bubble user">${esc(m.text)}</div>
+        <div class="msg-time">${m.time}</div>
+      </div></div>`;
+  }
+  let html = `<div class="msg-row">
+    <div class="avatar ai">O</div>
+    <div class="bubble-wrap" style="max-width:78%">
+      <div class="bubble ai">
+        <div style="margin-bottom:8px">${esc(m.answer)}</div>`;
+
+  if (m.reasoning?.length) {
+    html += `<div class="r-card"><div class="r-label">Reasoning extracted</div>
+      ${m.reasoning.map(r=>`<div class="r-item"><span class="r-bullet">▸</span>${esc(r)}</div>`).join('')}
+    </div>`;
+  }
+  if (m.alternative) {
+    html += `<div class="alt-card"><div class="alt-label">Alternative rejected</div>${esc(m.alternative)}</div>`;
+  }
+  if (m.whatif) {
+    html += `<div class="whatif-card"><div class="whatif-label">What-if analysis</div>${esc(m.whatif)}</div>`;
+  }
+  if (m.sources?.length) {
+    html += `<div class="sources">${m.sources.map(s=>`<span class="src">${esc(s)}</span>`).join('')}</div>`;
+  }
+  html += `</div><div class="msg-time">${m.time}</div></div></div>`;
+  return html;
+}
+
+// ── Send message ─────────────────────────────────────────────
+async function send() {
+  const input = document.getElementById('msgInput');
+  const text = input.value.trim();
+  if (!text || state.loading) return;
+
+  state.loading = true;
+  input.value = ''; autoResize(input);
+  document.getElementById('sendBtn').disabled = true;
+
+  const conv = state.conversations[state.activeConv];
+  conv.msgs.push({ role:'user', text, time: nowStr() });
+
+  if (conv.msgs.length === 1) {
+    conv.title = text.length > 38 ? text.slice(0,38)+'…' : text;
+    document.getElementById('convTitle').textContent = conv.title;
+    renderConvList();
+  }
+
+  renderMessages();
+  // append loading bubble
+  const el = document.getElementById('messages');
+  const ld = document.createElement('div');
+  ld.className = 'msg-row'; ld.id = 'loadingRow';
+  ld.innerHTML = `<div class="avatar ai">O</div>
+    <div class="loading-bubble">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>`;
+  el.appendChild(ld);
+  el.scrollTop = el.scrollHeight;
+
+  // Build decision context
+  const decCtx = state.decisions.length > 0
+    ? '\n\nStored decisions:\n' + state.decisions.map(d =>
+        `• Decision: ${d.decision}\n  Reason: ${d.reason}\n  Alternatives: ${d.alternatives?.join(', ')||'none'}\n  Source: ${d.source}`
+      ).join('\n\n')
+    : '';
+  const docCtx = state.docs.length > 0
+    ? '\n\nDocuments:\n' + state.docs.map(d=>`[${d.name}]:\n${d.content.slice(0,800)}`).join('\n\n')
+    : '';
+
+  const history = conv.msgs.slice(0,-1).map(m => ({
+    role: m.role === 'user' ? 'user' : 'assistant',
+    content: m.role === 'user' ? m.text : (m.answer || '')
+  }));
+
+  try {
+    const res = await fetch(API_BASE() + '/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: text })
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`);
+    }
+    
+    const data = await res.json();
+    
+    // Transform sources array to match display format
+    const sources = data.sources?.map(s => {
+      const parts = [];
+      if (s.decision) parts.push(s.decision);
+      if (s.source) parts.push(s.source);
+      return parts.join(' — ') || 'Unknown source';
+    }) || [];
+    
+    // Extract reasoning from sources if available
+    const reasoning = data.sources?.map(s => s.reason).filter(Boolean) || [];
+    
+    // Extract alternatives
+    const alternative = data.sources?.find(s => s.alternatives)?.alternatives || null;
+    
+    conv.msgs.push({ 
+      role: 'ai', 
+      time: nowStr(), 
+      answer: data.answer || 'No answer provided',
+      reasoning: reasoning.slice(0, 3), // Limit to 3 reasoning items
+      sources: sources,
+      alternative: alternative,
+      whatif: null // Backend doesn't provide this yet
+    });
+  } catch(e) {
+    conv.msgs.push({ 
+      role: 'ai', 
+      answer: `Connection error: ${e.message}. Make sure backend is running at ${API_BASE()}`, 
+      reasoning: [], 
+      sources: [], 
+      time: nowStr() 
+    });
+  }
+
+  state.loading = false;
+  document.getElementById('sendBtn').disabled = false;
+  renderMessages();
+}
+
+// ── Store decision ────────────────────────────────────────────
+async function storeDecision() {
+  const decision   = document.getElementById('f-decision').value.trim();
+  const reason     = document.getElementById('f-reason').value.trim();
+  const source     = document.getElementById('f-source').value.trim();
+  if (!decision || !reason || !source) { showToast('Decision, Reason and Source are required', 'error'); return; }
+
+  const payload = {
+    decision,
+    reason,
+    alternatives: document.getElementById('f-alternatives').value.split(',').map(s=>s.trim()).filter(Boolean),
+    impacts:      document.getElementById('f-impacts').value.split(',').map(s=>s.trim()).filter(Boolean),
+    source,
+    project:      document.getElementById('f-project').value.trim() || undefined,
+    decided_by:   document.getElementById('f-decided-by').value.trim() || undefined,
+    tags:         state.tags,
+  };
+
+  document.getElementById('submitBtn').disabled = true;
+  document.getElementById('submitBtn').innerHTML = '<span>Storing…</span>';
+
+  let stored = false;
+  try {
+    const res = await fetch(API_BASE() + '/store-decision', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) { stored = true; }
+    else { showToast('Backend error: ' + res.status, 'error'); }
+  } catch {
+    // backend not running — store locally
+    stored = true;
+  }
+
+  if (stored) {
+    state.decisions.push({ ...payload, id: Date.now(), created_at: new Date().toISOString() });
+    clearForm();
+    renderDecisionsList();
+    updateMeta();
+    showToast(`"${decision}" stored in memory ✓`, 'success');
+  }
+
+  document.getElementById('submitBtn').disabled = false;
+  document.getElementById('submitBtn').innerHTML = '<span>Store in Memory</span><span>→</span>';
+}
+
+function clearForm() {
+  ['f-decision','f-reason','f-alternatives','f-impacts','f-source','f-project','f-decided-by'].forEach(id=>{
+    document.getElementById(id).value = '';
+  });
+  state.tags = [];
+  document.getElementById('tagsWrap').querySelectorAll('.tag-pill').forEach(p=>p.remove());
+}
+
+function renderDecisionsList() {
+  const el = document.getElementById('decisionsList');
+  document.getElementById('decCount').textContent = state.decisions.length + ' stored';
+  if (!state.decisions.length) {
+    el.innerHTML = `<div style="padding:16px 0;text-align:center;font-size:12px;color:var(--t4)">No decisions stored yet</div>`;
+    return;
+  }
+  el.innerHTML = state.decisions.slice().reverse().map(d=>`
+    <div class="decision-card">
+      <div class="dc-title">${esc(d.decision)}</div>
+      <div class="dc-reason">${esc(d.reason)}</div>
+      ${d.tags?.length ? `<div class="dc-tags">${d.tags.map(t=>`<span class="dc-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+      <div class="dc-meta">${esc(d.source)} · ${new Date(d.created_at).toLocaleDateString()}</div>
+    </div>`).join('');
+}
+
+// ── Tag input ─────────────────────────────────────────────────
+function addTag(e) {
+  if (e.key !== 'Enter' && e.key !== ',') return;
+  e.preventDefault();
+  const val = e.target.value.trim().replace(',','');
+  if (!val || state.tags.includes(val)) { e.target.value=''; return; }
+  state.tags.push(val);
+  const pill = document.createElement('div');
+  pill.className = 'tag-pill';
+  pill.innerHTML = `${esc(val)}<span class="tag-rm" onclick="removeTag(this,'${val}')">×</span>`;
+  document.getElementById('tagsWrap').insertBefore(pill, e.target);
+  e.target.value = '';
+}
+function removeTag(el, val) {
+  state.tags = state.tags.filter(t=>t!==val);
+  el.parentElement.remove();
+}
+
+// ── Documents ─────────────────────────────────────────────────
+function handleFiles(e) {
+  Array.from(e.target.files).forEach(f => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      state.docs.push({ name: f.name, content: ev.target.result });
+      renderDocChips(); updateMeta();
+    };
+    reader.readAsText(f);
+  });
+  document.getElementById('uploadZone').classList.remove('open');
+  e.target.value = '';
+}
+function renderDocChips() {
+  document.getElementById('docChips').innerHTML =
+    state.docs.map(d=>`<div class="doc-chip">📄 ${esc(d.name)}</div>`).join('');
+}
+
+// ── UI helpers ────────────────────────────────────────────────
+function toggleUpload() { document.getElementById('uploadZone').classList.toggle('open'); }
+function showStorePanel() { document.getElementById('rightPanel').scrollIntoView({behavior:'smooth'}); }
+function toggleRight() {
+  const rp = document.getElementById('rightPanel');
+  rp.style.display = rp.style.display === 'flex' ? 'none' : 'flex';
+}
+function setTab(btn, tab) {
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type}`;
+  t.style.display = 'block';
+  setTimeout(()=>{ t.style.display='none'; }, 3500);
+}
+function useEg(btn) { document.getElementById('msgInput').value = btn.textContent; send(); }
+function fillHint(el) { document.getElementById('msgInput').focus(); document.getElementById('msgInput').value = el.textContent; }
+function onKey(e) { if (e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} }
+function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+function nowStr() { return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+function esc(s) { if(!s)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>

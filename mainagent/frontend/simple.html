@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Organizational Memory AI</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.container {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  max-width: 800px;
+  width: 100%;
+  padding: 40px;
+}
+
+h1 {
+  color: #333;
+  margin-bottom: 10px;
+  font-size: 28px;
+}
+
+.subtitle {
+  color: #666;
+  margin-bottom: 30px;
+  font-size: 14px;
+}
+
+.input-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+}
+
+#questionInput {
+  flex: 1;
+  padding: 14px 18px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 15px;
+  transition: border-color 0.3s;
+}
+
+#questionInput:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+#askButton {
+  padding: 14px 32px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+#askButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+#askButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loading {
+  display: none;
+  text-align: center;
+  padding: 20px;
+  color: #667eea;
+}
+
+.spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #667eea;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.result {
+  display: none;
+}
+
+.answer-section {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-left: 4px solid #667eea;
+}
+
+.answer-section h2 {
+  color: #333;
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+
+.answer-text {
+  color: #555;
+  line-height: 1.6;
+  font-size: 15px;
+}
+
+.sources-section h2 {
+  color: #333;
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+
+.source-item {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+}
+
+.source-decision {
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 4px;
+}
+
+.source-reason {
+  color: #555;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.source-meta {
+  color: #999;
+  font-size: 12px;
+}
+
+.error {
+  background: #fee;
+  border-left: 4px solid #f44;
+  padding: 16px;
+  border-radius: 8px;
+  color: #c33;
+  display: none;
+  margin-bottom: 20px;
+}
+
+.examples {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.examples h3 {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.example-btn {
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-right: 8px;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+
+.example-btn:hover {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🧠 Organizational Memory AI</h1>
+  <p class="subtitle">Ask questions about past decisions, alternatives, and reasoning</p>
+  
+  <div class="input-group">
+    <input 
+      type="text" 
+      id="questionInput" 
+      placeholder="Why did we choose PostgreSQL over MongoDB?"
+      onkeypress="handleKeyPress(event)"
+    />
+    <button id="askButton" onclick="askQuestion()">Ask</button>
+  </div>
+
+  <div class="error" id="errorMessage"></div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>Thinking...</p>
+  </div>
+
+  <div class="result" id="result">
+    <div class="answer-section">
+      <h2>💡 Answer</h2>
+      <div class="answer-text" id="answerText"></div>
+    </div>
+
+    <div class="sources-section">
+      <h2>📚 Sources</h2>
+      <div id="sourcesList"></div>
+    </div>
+  </div>
+
+  <div class="examples">
+    <h3>Try these examples:</h3>
+    <button class="example-btn" onclick="fillExample(this)">Why did we choose PostgreSQL?</button>
+    <button class="example-btn" onclick="fillExample(this)">Who approved the AWS migration?</button>
+    <button class="example-btn" onclick="fillExample(this)">What alternatives were considered?</button>
+  </div>
+</div>
+
+<script>
+const API_URL = 'http://127.0.0.1:8000';
+
+function handleKeyPress(event) {
+  if (event.key === 'Enter') {
+    askQuestion();
+  }
+}
+
+function fillExample(btn) {
+  document.getElementById('questionInput').value = btn.textContent;
+  askQuestion();
+}
+
+async function askQuestion() {
+  const input = document.getElementById('questionInput');
+  const question = input.value.trim();
+  
+  if (!question) {
+    showError('Please enter a question');
+    return;
+  }
+
+  // Hide previous results and errors
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('errorMessage').style.display = 'none';
+  
+  // Show loading
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('askButton').disabled = true;
+
+  try {
+    const response = await fetch(`${API_URL}/ask`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ question })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    displayResult(data);
+    
+  } catch (error) {
+    showError(`Failed to connect to backend: ${error.message}. Make sure the server is running at ${API_URL}`);
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('askButton').disabled = false;
+  }
+}
+
+function displayResult(data) {
+  // Display answer
+  document.getElementById('answerText').textContent = data.answer || 'No answer provided';
+  
+  // Display sources
+  const sourcesList = document.getElementById('sourcesList');
+  sourcesList.innerHTML = '';
+  
+  if (data.sources && data.sources.length > 0) {
+    data.sources.forEach(source => {
+      const sourceDiv = document.createElement('div');
+      sourceDiv.className = 'source-item';
+      
+      let html = '';
+      if (source.decision) {
+        html += `<div class="source-decision">${escapeHtml(source.decision)}</div>`;
+      }
+      if (source.reason) {
+        html += `<div class="source-reason">${escapeHtml(source.reason)}</div>`;
+      }
+      if (source.alternatives) {
+        html += `<div class="source-reason"><strong>Alternatives:</strong> ${escapeHtml(source.alternatives)}</div>`;
+      }
+      if (source.source) {
+        html += `<div class="source-meta">Source: ${escapeHtml(source.source)}</div>`;
+      }
+      
+      sourceDiv.innerHTML = html;
+      sourcesList.appendChild(sourceDiv);
+    });
+  } else {
+    sourcesList.innerHTML = '<p style="color: #999;">No sources found</p>';
+  }
+  
+  document.getElementById('result').style.display = 'block';
+}
+
+function showError(message) {
+  const errorDiv = document.getElementById('errorMessage');
+  errorDiv.textContent = message;
+  errorDiv.style.display = 'block';
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>

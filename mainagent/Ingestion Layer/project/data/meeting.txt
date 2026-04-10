@@ -1,0 +1,10 @@
+Dev A: We need to choose between SQL and NoSQL for this project.
+Dev B: What’s the main requirement—structured data or flexibility?
+Dev A: Mostly structured, but we may scale later.
+Dev B: Then PostgreSQL could work, it supports scalability and JSON too.
+Dev A: True, but NoSQL like MongoDB is easier for rapid development.
+Dev B: Yes, but consistency matters for transactions.
+Dev A: Good point, we can’t risk data inconsistency.
+Dev B: Also, our team already knows SQL well.
+Dev A: That reduces development time significantly.
+Dev B: So let’s go with PostgreSQL for now.
