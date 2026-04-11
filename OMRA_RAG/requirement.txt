@@ -1,0 +1,17 @@
+# Installation:
+# pip install -r requirement.txt
+
+# Running the server:
+# python main.py
+# Then open: http://127.0.0.1:8080/docs
+
+fastapi
+uvicorn
+python-multipart  # For file uploads
+chromadb          # Vector database
+langchain         # Orchestration & text splitting
+langchain-community  # Community integrations
+langchain-openai  # OpenAI/LM Studio integration
+pypdf             # To read PDF files
+ollama            # To communicate with your local models
+python-dotenv
